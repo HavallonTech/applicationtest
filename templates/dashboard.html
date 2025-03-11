@@ -27,7 +27,6 @@
                         <th>SN</th>
                         <th>Patient ID</th>
                         <th>Procedure</th>
-                        <th>Department</th>
                         <th>Queue Time</th>
                         <th colspan="3" align="center">Action</th>
                     </tr>
@@ -37,7 +36,6 @@
                         <td class="counter"></td>
                         <td>{{row.pat_id}}</td>
                         <td>{{row.pat_procedure}}</td>
-                        <td>{{row.departmentid}}</td>
                         <td>{{row.queue_time}}<input type="hidden" class="form-control" id="queue_id" name="queue_id" value="{{row.queue_id}}"></td>
                         <td> <a href="#" class="btn btn-success" data-toggle="modal" data-target="#mymodal" onclick="patientserved('{{ row.queue_id }}')"> Served</a></td>
                         <td> <a href="/update/{{row.queue_id}}" class="btn btn-warning" data-toggle="modal" data-target="#modaledit{{row.queue_id}}"> Edit</a></td>
