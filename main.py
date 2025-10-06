@@ -140,6 +140,16 @@ def carddashboard():
     all_data = Btqueue.query.filter_by(service_status = 1).all()
     return render_template('carddashboard.html', system_queue=all_data)
 
+######################################################################################
+##################################UltraSound dashboard################################
+######################################################################################
+@app.route("/ussdashboard")
+def ussdashboard():
+    if "username" not in session:
+        return redirect(url_for("index"))
+    all_data = Btqueue.query.filter_by(service_status = 1).all()
+    return render_template('ussdashboard.html', system_queue=all_data)
+
 
 
 @app.route('/insert', methods=["POST"])
@@ -263,6 +273,11 @@ def echoview():
 def ctview():
     ct_data = Btqueue.query.filter_by(pat_procedure="CT", service_status=1).all()
     return render_template('ctview.html', ct_data=ct_data)
+
+@app.route('/ussview')
+def ussview():
+    uss_data = Btqueue.query.filter_by(pat_procedure="USS", service_status=1).all()
+    return render_template('ussview.html', uss_data=uss_data)
 
 @app.route("/logout")
 def logout():

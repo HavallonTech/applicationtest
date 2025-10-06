@@ -9,7 +9,7 @@
     <div class="row">
         <div class="col md-12">
             <div class="jumbotron p-3 bg-light">
-                <h2>  Manage Queue <button type="button" class="btn btn-success float-end" onclick="addpatient()">Add New Patient</button></h2>
+                <h2>  Manage Queue <button type="button" class="btn btn-success float-end" onclick="addpatient()">Add New Patient cd</button></h2>
                 {%with messages = get_flashed_messages() %}
                   {% if messages %}
                     {%for message in messages %}
@@ -70,9 +70,6 @@
                                         <option value="CT">CT</option>
                                         <option value="MRI">MRI</option>
                                         <option value="X-Ray">X-Ray</option>
-                                        <option value="ECG">ECG</option>
-                                        <option value="Echo">Echo</option>
-                                        <option value="Doppler">Doppler</option>
                                     </select>
 
                                 </div>
@@ -127,14 +124,8 @@
                       <label for="patient_procedure" class="col-form-label">Select Procedure:</label>
                       <select name="patient_procedure" id="patient_procedure" class="custom-select">
                           <option value="">--Please choose an option--</option>
-                          <option value="CT">CT</option>
-                          <option value="MRI">MRI</option>
-                          <option value="X-Ray">X-Ray</option>
-                          <option value="USS">Ultrasound</option>
-                          <option value="ECG">ECG</option>
-                          <option value="Echo">Echo</option>
-                          <option value="Doppler">Doppler</option>
-
+                          <option value="uss">Ultrasound</option>
+                          <option value="others">Others</option>
                       </select>
                   </div>
                   <div class="form-group">
@@ -158,29 +149,12 @@
 </div>
 <div class="container mt-5">
   <div class="text-center">
-    {% if session.get('userdept')|int == 1 %}
-    <h2>Radiology Queue Monitor</h2>
-    <div class="btn-group mt-4" role="group" aria-label="Button group">
-        <button type="button" class="btn btn-primary" onclick="window.location.href='/xrayview'">X-Ray Queue</button>
-        <button type="button" class="btn btn-danger" onclick="window.location.href='/ctview'">CT-Queue</button>
-        <button type="button" class="btn btn-success" onclick="window.location.href='/mriview'">MRI-Queue</button>
-        <button type="button" class="btn btn-info" onclick="window.location.href='/genreport'">Queue Report</button>
-    </div>
- {% elif session.get('userdept')|int == 4 %}
-    <h2>Ultrasound Queue Monitor</h2>
-    <div class="btn-group mt-4" role="group" aria-label="Button group">
-        <button type="button" class="btn btn-primary" onclick="window.location.href='/ussview'">USS View</button>
-        <button type="button" class="btn btn-info" onclick="window.location.href='/genreport'">Queue Report</button>
-    </div>
-{% else %}
-    <h2>Cardiology Queue Monitor</h2>
-    <div class="btn-group mt-4" role="group" aria-label="Button group">
-        <button type="button" class="btn btn-info" onclick="window.location.href='/echoview'">Echo-Queue</button>
-        <button type="button" class="btn btn-warning" onclick="window.location.href='/ecgview'">ECG-Queue</button>
-        <button type="button" class="btn btn-secondary" onclick="window.location.href='/dopplerview'">Doppler-Queue</button>
-        <button type="button" class="btn btn-info" onclick="window.location.href='/genreport'">Queue Report</button>
-    </div>
-{% endif %}
+      <h2>Custom Queue Monitor</h2>
+      <div class="btn-group mt-4" role="group" aria-label="Button group">
+          <button type="button" class="btn btn-primary" onclick="window.location.href='/xrayview'">X-Ray Queue</button>
+          <button type="button" class="btn btn-danger" onclick="window.location.href='/ctview'">CT-Queue</button>
+          <button type="button" class="btn btn-success" onclick="window.location.href='/mriview'">MRI-Queue</button>
+      </div>
   </div>
 </div>
 </div>
