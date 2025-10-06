@@ -1,115 +1,151 @@
 {% extends 'base.html' %}
 
-{% block title %} X-Queue List {% endblock %}
+{% block title %}Ultrasound Queue List{% endblock %}
 
 {% block body %}
-<div>
+<div class="container-fluid mt-3">
     <div class="row">
-        <div class="vw-100 bg-info">
-            <div class="jumbotron p-3 bg-info text-white">
-                <h2 align="center">UltraSound  Procedures</h2>
-            </div>
-            <table class="table table-hover table-dark"  style="border: 6px solid white;">
-            
-                {% if uss_data %}
-                    <tr>
-                        <td>Patient ID</td>
-                        <td>Procedure Estimated Time</td>
-                        <td>NEXT ON QUEUE</td>
-                    </tr>
+        <div class="col-12 bg-info text-white py-3">
+            <h2 class="text-center">Ultrasound Procedures Queue</h2>
+        </div>
+    </div>
 
+    <!-- Auto-refresh every 5 minutes -->
+    <meta http-equiv="refresh" content="300">
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <table class="table table-hover table-dark text-center" style="border: 6px solid white;">
+                <thead>
                     <tr>
-                        <td><span style="font-size: 34px; color:aquamarine;">{{ uss_data[0].pat_id }}</span></td>
-                        <td>
-                            <p><span id="countdown" style="font-size: 104px; color: red;"></span></p>
-                            <script>
-                                // Countdown logic
-                                let queueTime = {{ uss_data[0].queue_time }};
-                                let countdownInSeconds = queueTime * 60;
-                                let countdownInterval;
-                        
-                                // Function to start the countdown
-                                function startCountdown() {
-                                    let countdownElement = document.getElementById("countdown");
-                                    countdownInterval = setInterval(function () {
-                                        let minutes = Math.floor(countdownInSeconds / 60);
-                                        let seconds = countdownInSeconds % 60;
-                                        countdownElement.innerHTML = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                        
-                                        // Stop countdown and show "TIME-UP" if it reaches zero
-                                        if (countdownInSeconds <= 0) {
-                                            clearInterval(countdownInterval);
-                                            countdownElement.innerHTML = "ROUNDING-UP";
-                                        }
-                                        countdownInSeconds--;
-                                    }, 1000);
-                                }
-                        
-                                // Function to handle emergency
-                                function emmergency() {
-                                    // Stop the countdown
-                                    clearInterval(countdownInterval);
-                                    // Display emergency message
-                                    let countdownElement = document.getElementById("countdown");
-                                    countdownElement.innerHTML = "Emergency! Kindly Hold";
-                                }
-                        
-                                // Function to update patient status
-                                function patientserved(queue_id) {
-                                    fetch('/update_status', {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json'
-                                        },
-                                        body: JSON.stringify({ status: 'served', queue_id: queue_id })
-                                    })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        if (data.success) {
-                                            alert('Status updated successfully!');
-                                            location.reload();
-                                        } else {
-                                            alert('Failed to update status.');
-                                        }
-                                    })
-                                    .catch(error => console.error('Error:', error));
-                                }
-                        
-                                // Initialize countdown on page load
-                                document.addEventListener('DOMContentLoaded', function () {
-                                    startCountdown();
-                                });
-                            </script>
-                            <a href="#" class="btn btn-success" data-toggle="modal" data-target="#mymodal" onclick="patientserved('{{uss_data[0].queue_id}}')"> Served</a>
-                            <a href="#" onclick="emmergency()"> <img src="{{ url_for('static', filename='emergency.png') }}" alt="Emme" style="width: 20px; height: 20px; margin-left: 5px;">
-                            </a>
-                        </td>
-                        <td>
-                            <table class="table table-stripe table-dark" >
-                                <tr>
-                                    <td> <span style="font-size: 18px; color:rgb(255, 127, 202); font-weight: bold;">Pat ID</span></td>
-                                    <td><span style="font-size: 18px; color:rgb(255, 127, 202); font-weight: bold;">Procedure Estimated Time</span></td>
-                                </tr>
-                                {% for record in uss_data[1:] %}
-                                    <tr>
-                                        <td>{{ record.pat_id }}</td>
-                                        <td>{{ record.queue_time }}
-                                            <img src="{{ url_for('static', filename='clock.png') }}" alt="Clock" style="width: 20px; height: 20px; margin-left: 5px;">
-         
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </table>
-                        </td>
+                        <th>SN</th>
+                        <th>Patient ID</th>
+                        <th>Procedure Estimated Time</th>
+                        <th>Status</th>
+                        <th>Action</th>
                     </tr>
-                
-                {% else %}
-                <tr>
-                    <td colspan="3">No records found.</td>
-                </tr>
-                {% endif %}
+                </thead>
+
+                <tbody>
+                    {% if uss_data %}
+                        {% for record in uss_data %}
+                            <tr id="{% if loop.first %}activeRow{% endif %}" 
+                                class="{% if loop.index <= 5 %}table-warning text-dark font-weight-bold{% endif %}">
+                                <td>{{ loop.index }}</td>
+                                <td style="font-size: 22px;">{{ record.pat_id }}</td>
+                                <td>
+                                    {% if loop.first %}
+                                        <span id="countdown" style="font-size: 50px; color: red;"></span>
+                                    {% else %}
+                                        {{ record.queue_time }}
+                                        <img src="{{ url_for('static', filename='clock.png') }}" alt="Clock" style="width: 20px; height: 20px;">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if loop.first %}
+                                        <span style="color: rgba(187, 0, 255, 0.686);">On Procedure</span>
+                                    {% else %}
+                                        Waiting
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if loop.first %}
+                                        <a href="#" class="btn btn-success btn-sm" onclick="patientserved('{{ record.queue_id }}')">Served</a>
+                                        <a href="#" class="btn btn-danger btn-sm" onclick="emergency()">Emergency</a>
+                                    {% else %}
+                                        <span>--</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5">No records found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<style>
+    /* Flash animation for countdown end */
+    @keyframes flash {
+        0%, 100% { background-color: #ff0000; color: white; }
+        50% { background-color: yellow; color: black; }
+    }
+
+    .flashing {
+        animation: flash 1s infinite;
+    }
+</style>
+
+<script>
+    {% if uss_data %}
+    let queueTime = {{ uss_data[0].queue_time }};
+    let countdownInSeconds;
+
+    // Restore previous remaining time from localStorage if available
+    if (localStorage.getItem("countdownRemaining")) {
+        countdownInSeconds = parseInt(localStorage.getItem("countdownRemaining"));
+    } else {
+        countdownInSeconds = queueTime * 60;
+        localStorage.setItem("countdownRemaining", countdownInSeconds);
+    }
+
+    let countdownInterval;
+
+    function startCountdown() {
+        const countdownElement = document.getElementById("countdown");
+        countdownInterval = setInterval(() => {
+            const minutes = Math.floor(countdownInSeconds / 60);
+            const seconds = countdownInSeconds % 60;
+            countdownElement.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+            // Save remaining time to localStorage so it persists after refresh
+            localStorage.setItem("countdownRemaining", countdownInSeconds);
+
+            if (countdownInSeconds <= 0) {
+                clearInterval(countdownInterval);
+                localStorage.removeItem("countdownRemaining");
+                countdownElement.textContent = "ROUNDING-UP";
+                
+                // Flash the first row
+                document.getElementById("activeRow").classList.add("flashing");
+            }
+
+            countdownInSeconds--;
+        }, 1000);
+    }
+
+    function emergency() {
+        clearInterval(countdownInterval);
+        document.getElementById("countdown").textContent = "Emergency! Kindly Hold";
+        document.getElementById("activeRow").classList.add("flashing");
+        localStorage.removeItem("countdownRemaining");
+    }
+
+    function patientserved(queue_id) {
+        localStorage.removeItem("countdownRemaining");
+        fetch('/update_status', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: 'served', queue_id: queue_id})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Status updated successfully!');
+                location.reload();
+            } else {
+                alert('Failed to update status.');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    document.addEventListener('DOMContentLoaded', startCountdown);
+    {% endif %}
+</script>
 {% endblock %}

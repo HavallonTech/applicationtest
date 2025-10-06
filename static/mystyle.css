@@ -82,3 +82,53 @@ select {
     position: relative;
     width: 260px;
 }
+table.table {
+        font-size: 14px; /* smaller text */
+        border-width: 2px !important;
+        margin-bottom: 0;
+    }
+
+    table.table th,
+    table.table td {
+        padding: 4px 6px !important; /* tighter padding */
+        vertical-align: middle !important;
+    }
+
+    table.table thead th {
+        font-size: 15px;
+        background-color: #212529;
+    }
+
+    table.table-hover tbody tr:hover {
+        background-color: #333 !important;
+    }
+
+    /* Smaller buttons */
+    .btn-sm {
+        padding: 2px 6px;
+        font-size: 12px;
+    }
+
+    /* Countdown text smaller but still distinct */
+    #countdown {
+        font-size: 26px !important;
+    }
+
+    /* Reduce spacing around the page */
+    .container-fluid {
+        padding: 8px 10px;
+    }
+
+    .mt-3, .mt-4 {
+        margin-top: 10px !important;
+    }
+
+    /* Flash animation for countdown end */
+    @keyframes flash {
+        0%, 100% { background-color: #ff0000; color: white; }
+        50% { background-color: yellow; color: black; }
+    }
+
+    .flashing {
+        animation: flash 1s infinite;
+    }
