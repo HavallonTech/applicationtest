@@ -25,7 +25,7 @@
                 <table class="table table-hover table-dark">
                     <tr>
                         <th>SN</th>
-                        <th>Patient ID</th>
+                        <th>FirstName/PUID</th>
                         <th>Procedure</th>
                         <th>Queue Time</th>
                         <th colspan="3" align="center">Action</th>
@@ -55,7 +55,7 @@
                             <div class="modal-body">
                               <form action="/update" method="POST">
                                 <div class="form-group">
-                                  <label for="recipient-name" class="col-form-label" required="1">Patient ID:</label>
+                                  <label for="recipient-name" class="col-form-label" required="1">FirstName/PUID:</label>
                                   <input type="hidden" class="form-control" id="queue_id" name="queue_id" value="{{row.queue_id}}">
                                   <input type="text" class="form-control" id="patient_id" name="patient_id" value="{{row.pat_id}}">
                                 </div>
@@ -116,7 +116,7 @@
           <div class="modal-body">
               <form action="/insert" method="POST">
                   <div class="form-group">
-                      <label for="patient_id" class="col-form-label">Patient ID:</label>
+                      <label for="patient_id" class="col-form-label">FirstName/PUID:</label>
                       <input type="text" class="form-control" id="patient_id" name="patient_id">
                   </div>
                   <div class="form-group">

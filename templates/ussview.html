@@ -10,16 +10,15 @@
         </div>
     </div>
 
-    <!-- Auto-refresh every 5 minutes -->
-    <meta http-equiv="refresh" content="300">
+    <meta http-equiv="refresh" content="1200">
 
     <div class="row mt-4">
         <div class="col-12">
-            <table class="table table-hover table-dark text-center" style="border: 6px solid white;">
+            <table id="queueTable" class="table table-hover table-dark text-center" style="border: 6px solid white;">
                 <thead>
                     <tr>
                         <th>SN</th>
-                        <th>Patient ID</th>
+                        <th>FirstName/PUIDC</th>
                         <th>Procedure Estimated Time</th>
                         <th>Status</th>
                         <th>Action</th>
@@ -29,29 +28,39 @@
                 <tbody>
                     {% if uss_data %}
                         {% for record in uss_data %}
-                            <tr id="{% if loop.first %}activeRow{% endif %}" 
+                            <tr id="row_{{ loop.index }}" 
+                                data-queue-id="{{ record.queue_id }}"
                                 class="{% if loop.index <= 5 %}table-warning text-dark font-weight-bold{% endif %}">
-                                <td>{{ loop.index }}</td>
+                                <td class="sn">{{ loop.index }}</td>
                                 <td style="font-size: 22px;">{{ record.pat_id }}</td>
                                 <td>
-                                    {% if loop.first %}
+                                    {% if loop.first and record.service_status == 1 %}
                                         <span id="countdown" style="font-size: 50px; color: red;"></span>
+                                        <!-- embed remaining_seconds for the active record -->
+                                        <script>
+                                            window.__uss_active = {
+                                                queue_id: {{ record.queue_id | tojson }},
+                                                remaining_seconds: {{ record.remaining_seconds | tojson }}
+                                            };
+                                        </script>
                                     {% else %}
                                         {{ record.queue_time }}
                                         <img src="{{ url_for('static', filename='clock.png') }}" alt="Clock" style="width: 20px; height: 20px;">
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if loop.first %}
+                                    {% if loop.first and record.service_status == 1 %}
                                         <span style="color: rgba(187, 0, 255, 0.686);">On Procedure</span>
                                     {% else %}
                                         Waiting
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if loop.first %}
+                                    {% if loop.first and record.service_status == 1 %}
                                         <a href="#" class="btn btn-success btn-sm" onclick="patientserved('{{ record.queue_id }}')">Served</a>
                                         <a href="#" class="btn btn-danger btn-sm" onclick="emergency()">Emergency</a>
+                                    {% elif loop.index > 5 and loop.index <= 8 %}
+                                        <button class="btn btn-warning btn-sm swap-btn" onclick="selectForSwap({{ loop.index }})">Swap</button>
                                     {% else %}
                                         <span>--</span>
                                     {% endif %}
@@ -70,82 +79,161 @@
 </div>
 
 <style>
-    /* Flash animation for countdown end */
-    @keyframes flash {
-        0%, 100% { background-color: #ff0000; color: white; }
-        50% { background-color: yellow; color: black; }
-    }
-
-    .flashing {
-        animation: flash 1s infinite;
-    }
+@keyframes flash {
+    0%, 100% { background-color: #ff0000; color: white; }
+    50% { background-color: rgb(96, 235, 193); color: black; }
+}
+.flashing { animation: flash 1s infinite; }
+.selected-for-swap { background-color: #ffc107 !important; color: black; font-weight: bold; }
 </style>
 
 <script>
-    {% if uss_data %}
-    let queueTime = {{ uss_data[0].queue_time }};
-    let countdownInSeconds;
+{% if uss_data %}
+/* Use the server-provided remaining_seconds for the active patient (if any) */
+let countdownInterval = null;
 
-    // Restore previous remaining time from localStorage if available
-    if (localStorage.getItem("countdownRemaining")) {
-        countdownInSeconds = parseInt(localStorage.getItem("countdownRemaining"));
+/* Helper: update countdown display */
+function updateCountdownDisplay(secondsLeft) {
+    const el = document.getElementById('countdown');
+    if (!el) return;
+    const mins = Math.floor(secondsLeft / 60);
+    const secs = secondsLeft % 60;
+    el.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+/* Start countdown from given seconds (clear any existing timer) */
+function startCountdown(seconds) {
+    const el = document.getElementById('countdown');
+    if (!el) return;
+
+    clearInterval(countdownInterval);
+    let remaining = Math.max(0, Math.floor(seconds));
+
+    updateCountdownDisplay(remaining);
+
+    // If zero at start, set ROUNDING-UP immediately
+    if (remaining === 0) {
+        el.textContent = "ROUNDING-UP";
+        const r1 = document.getElementById('row_1');
+        if (r1) r1.classList.add('flashing');
+        return;
+    }
+
+    countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+            clearInterval(countdownInterval);
+            el.textContent = "ROUNDING-UP";
+            const r1 = document.getElementById('row_1');
+            if (r1) r1.classList.add('flashing');
+            return;
+        }
+        updateCountdownDisplay(remaining);
+    }, 1000);
+}
+
+/* Emergency: stop timer and flash */
+function emergency() {
+    clearInterval(countdownInterval);
+    const el = document.getElementById('countdown');
+    if (el) el.textContent = "Emergency! Kindly Hold";
+    const r1 = document.getElementById('row_1');
+    if (r1) r1.classList.add('flashing');
+}
+
+/* Patient served: call backend, then reload to pick up fresh DB values.
+   Server (update_status) will promote next waiting patient and set its start_time. */
+function patientserved(queue_id) {
+    clearInterval(countdownInterval);
+
+    fetch('/update_status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: 'served', queue_id: queue_id})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data && data.success) {
+            // small delay to ensure DB commit before reload
+            setTimeout(() => { location.reload(); }, 200);
+        } else {
+            console.error('Update failed response:', data);
+            alert('Failed to update status. See console for details.');
+        }
+    })
+    .catch(err => {
+        console.error('Error updating status:', err);
+        alert('Server error while updating status. See console for details.');
+    });
+}
+
+/* Init on DOM ready — use window.__uss_active if present */
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.__uss_active && typeof window.__uss_active.remaining_seconds !== 'undefined') {
+        startCountdown(window.__uss_active.remaining_seconds);
+    }
+});
+
+/* --------- SWAP logic (unchanged) ------------ */
+let selectedRows = [];
+function selectForSwap(index) {
+    const row = document.getElementById(`row_${index}`);
+    if (!row) return;
+
+    if (selectedRows.includes(index)) {
+        selectedRows = selectedRows.filter(i => i !== index);
+        row.classList.remove('selected-for-swap');
     } else {
-        countdownInSeconds = queueTime * 60;
-        localStorage.setItem("countdownRemaining", countdownInSeconds);
+        if (selectedRows.length < 2) {
+            selectedRows.push(index);
+            row.classList.add('selected-for-swap');
+        }
     }
 
-    let countdownInterval;
-
-    function startCountdown() {
-        const countdownElement = document.getElementById("countdown");
-        countdownInterval = setInterval(() => {
-            const minutes = Math.floor(countdownInSeconds / 60);
-            const seconds = countdownInSeconds % 60;
-            countdownElement.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-
-            // Save remaining time to localStorage so it persists after refresh
-            localStorage.setItem("countdownRemaining", countdownInSeconds);
-
-            if (countdownInSeconds <= 0) {
-                clearInterval(countdownInterval);
-                localStorage.removeItem("countdownRemaining");
-                countdownElement.textContent = "ROUNDING-UP";
-                
-                // Flash the first row
-                document.getElementById("activeRow").classList.add("flashing");
-            }
-
-            countdownInSeconds--;
-        }, 1000);
+    if (selectedRows.length === 2) {
+        const r1 = document.getElementById(`row_${selectedRows[0]}`);
+        const r2 = document.getElementById(`row_${selectedRows[1]}`);
+        const queueId1 = r1.dataset.queueId;
+        const queueId2 = r2.dataset.queueId;
+        swapRows(selectedRows[0], selectedRows[1], queueId1, queueId2);
+        selectedRows = [];
     }
+}
 
-    function emergency() {
-        clearInterval(countdownInterval);
-        document.getElementById("countdown").textContent = "Emergency! Kindly Hold";
-        document.getElementById("activeRow").classList.add("flashing");
-        localStorage.removeItem("countdownRemaining");
-    }
+function swapRows(index1, index2, queueId1, queueId2) {
+    const tbody = document.getElementById("queueTable").getElementsByTagName('tbody')[0];
+    const row1 = document.getElementById(`row_${index1}`);
+    const row2 = document.getElementById(`row_${index2}`);
+    if (!row1 || !row2) return;
 
-    function patientserved(queue_id) {
-        localStorage.removeItem("countdownRemaining");
-        fetch('/update_status', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({status: 'served', queue_id: queue_id})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Status updated successfully!');
-                location.reload();
-            } else {
-                alert('Failed to update status.');
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    }
+    // Visual swap (clone nodes then swap)
+    const clone1 = row1.cloneNode(true);
+    const clone2 = row2.cloneNode(true);
 
-    document.addEventListener('DOMContentLoaded', startCountdown);
-    {% endif %}
+    // replace by swapping their DOM order
+    tbody.replaceChild(clone1, row2);
+    tbody.replaceChild(clone2, row1);
+
+    // Persist swap to backend
+    fetch('/swap_queue', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({queue_id_1: queueId1, queue_id_2: queueId2})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data || !data.success) {
+            alert('Swap failed on server. Reloading to restore order.');
+            setTimeout(() => location.reload(), 300);
+        }
+    })
+    .catch(err => {
+        console.error('Swap error:', err);
+        alert('Swap request failed. Reloading to restore order.');
+        setTimeout(() => location.reload(), 300);
+    });
+}
+{% endif %}
 </script>
+
 {% endblock %}

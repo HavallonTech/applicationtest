@@ -13,12 +13,14 @@
             
                 {% if ct_data %}
                     <tr>
-                        <td>Patient ID</td>
+                        <td></td>
+                        <td>FirstName/PUID</td>
                         <td>Procedure Estimated Time</td>
                         <td>NEXT ON QUEUE</td>
                     </tr>
 
                     <tr>
+                        <td></td>
                         <td><span style="font-size: 34px; color:aquamarine;">{{ ct_data[0].pat_id }}</span></td>
                         <td>
                             <p><span id="countdown" style="font-size: 104px; color: red;"></span></p>

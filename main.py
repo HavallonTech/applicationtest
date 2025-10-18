@@ -2,6 +2,8 @@ from flask import Flask, request, render_template, redirect, session, url_for, f
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 
 app = Flask(__name__)
@@ -13,17 +15,19 @@ db = SQLAlchemy(app)
 # with this your db should be created and should be running effectively
 
 #database tables to be created for the first instance
-class Btqueue(db.Model):  # Capitalize 'Btqueue' to follow naming conventions
+class Btqueue(db.Model):
     __tablename__ = 'btqueue'
     queue_id = db.Column(db.Integer, primary_key=True)
     pat_phone = db.Column(db.String(100))
     pat_procedure = db.Column(db.String(100))
     queue_time = db.Column(db.Integer)
-    service_status =db.Column(db.Integer)
-    departure_time = db.Column(db.DateTime, default=datetime.utcnow)
+    service_status = db.Column(db.Integer, default=0)  # 0 = waiting, 1 = on procedure, 2 = served
+    departure_time = db.Column(db.DateTime, nullable=True)
     arrival_time = db.Column(db.DateTime, default=datetime.utcnow)
     pat_id = db.Column(db.String(100))
-    departmentid = db.Column(db.Integer, default=1) # Add the new column with a default value
+    departmentid = db.Column(db.Integer, default=1)
+    start_time = db.Column(db.DateTime, nullable=True)  # when procedure started
+    
 
     def __init__(self, pat_phone, pat_procedure, pat_id, queue_time, service_status, arrival_time, departure_time,  departmentid):
         self.pat_phone = pat_phone
@@ -172,35 +176,88 @@ def insert():
         # Return to Index
         return redirect('/')
     
-#python code to Update patient status record to either saved or not
+#python code to Update patient status record to either saved or not@app.route('/update_status', methods=['POST'])
 @app.route('/update_status', methods=['POST'])
 def update_status():
+    """
+    When 'served' is clicked:
+    - Mark current patient as served (service_status = 2)
+    - Find next waiting patient (service_status = 0) within same department & same procedure
+      and mark it 'on procedure' (service_status = 1)
+      + set its start_time = now()
+    """
     data = request.get_json()
     queue_id = data.get('queue_id')
     status = data.get('status')
-    #print("pat_id")
-    #exit()
-    # Update the database
+
     try:
         patient = Btqueue.query.filter_by(queue_id=queue_id).first()
-        if patient is None:
-            print("Patient not found")
-            patient = Btqueue.query.get(queue_id)
-            # Perform the update
-            # Check if patient exists
+        if not patient:
             return jsonify({'success': False, 'message': 'Patient not found'}), 404
-        # Update service status
-        patient.service_status = 2 if status == 'served' else 0
-        patient.departure_time = datetime.now() 
+
+        # 1️⃣ Mark the current patient as served
+        tz = ZoneInfo("Africa/Lagos")
+
+        patient.service_status = 2
+        patient.departure_time = datetime.now(tz)
         db.session.commit()
-        print("Status updated successfully")  # Debugging line
-        
+
+        # 2️⃣ Find next waiting patient in same department and procedure
+        next_patient = (
+            Btqueue.query.filter(
+                Btqueue.departmentid == patient.departmentid,
+                Btqueue.pat_procedure == patient.pat_procedure,
+                Btqueue.service_status == 0
+            )
+            .order_by(Btqueue.queue_id.asc())
+            .first()
+        )
+
+        # 3️⃣ Promote next patient (if any)
+        if next_patient:
+            tz = ZoneInfo("Africa/Lagos")
+            next_patient.service_status = 1
+            next_patient.start_time = datetime.now(tz)
+            db.session.commit()
+
         return jsonify({'success': True})
     except Exception as e:
-            print(f"Error updating status: {e}")
-            db.session.rollback()  # Rollback in case of error
-            return jsonify({'success': False}), 500
-        
+        db.session.rollback()
+        print(f"Error updating status: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# Python code to swap patient
+
+@app.route('/swap_queue', methods=['POST'])
+def swap_queue():
+    """
+    Accepts JSON: { "queue_id_1": <int>, "queue_id_2": <int> }
+    We'll swap their arrival_time values so ordering (by arrival_time) changes.
+    This avoids adding a new 'position' column.
+    """
+    data = request.get_json()
+    q1 = data.get('queue_id_1')
+    q2 = data.get('queue_id_2')
+
+    if not q1 or not q2:
+        return jsonify({'success': False, 'message': 'Missing queue IDs'}), 400
+
+    try:
+        r1 = Btqueue.query.filter_by(queue_id=q1).first()
+        r2 = Btqueue.query.filter_by(queue_id=q2).first()
+        if not r1 or not r2:
+            return jsonify({'success': False, 'message': 'Invalid queue IDs'}), 404
+
+        # swap arrival_time (swap ordering)
+        r1.arrival_time, r2.arrival_time = r2.arrival_time, r1.arrival_time
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        print("Swap error:", e)
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
+ ###########################################################################################################   
 @app.route('/update', methods=['POST','GET'])
 def update():
         if request.method == 'POST':
@@ -276,8 +333,38 @@ def ctview():
 
 @app.route('/ussview')
 def ussview():
-    uss_data = Btqueue.query.filter_by(pat_procedure="USS", service_status=1).all()
-    return render_template('ussview.html', uss_data=uss_data)
+    """
+    Render ultrasound queue view.
+    We order by arrival_time (so swap via arrival_time will reorder rows).
+    For the active/first patient (service_status == 1), compute remaining_seconds using start_time.
+    """
+    tz = ZoneInfo("Africa/Lagos")
+    now = datetime.now(tz)
+    #now = datetime.now(ZoneInfo("Africa/Lagos"))  # ✅ Lagos timezone
+
+
+    # Filter by procedure and active/waiting states. Adjust filter logic to suit your needs.
+    # Here we fetch all patients for USS with service_status in (0,1) so both waiting and active display.
+    uss_queue = Btqueue.query.filter(
+    Btqueue.pat_procedure == "USS",
+    Btqueue.departmentid == session.get('userdept'),
+    Btqueue.service_status.in_([0, 1])  # show only waiting or active
+).order_by(Btqueue.arrival_time).all()
+    
+    for record in uss_queue:
+        if record.service_status == 1 and record.start_time:
+            #elapsed = (now - record.start_time).total_seconds()
+            #record.remaining_seconds = max(0, int(record.queue_time * 60 - elapsed))
+            # Ensure start_time is timezone-aware
+            if record.start_time.tzinfo is None:
+                record.start_time = record.start_time.replace(tzinfo=tz)
+            elapsed = (now - record.start_time).total_seconds()
+            record.remaining_seconds = max(0, int(record.queue_time * 60 - elapsed))
+        else:
+            # For waiting patients (or missing start_time), the "remaining" is their estimated procedure time
+            record.remaining_seconds = int(record.queue_time * 60) if record.queue_time else 0
+
+    return render_template('ussview.html', uss_data=uss_queue)
 
 @app.route("/logout")
 def logout():
