@@ -59,8 +59,8 @@
                                     {% if loop.first and record.service_status == 1 %}
                                         <a href="#" class="btn btn-success btn-sm" onclick="patientserved('{{ record.queue_id }}')">Served</a>
                                         <a href="#" class="btn btn-danger btn-sm" onclick="emergency()">Emergency</a>
-                                    {% elif loop.index > 5 and loop.index <= 8 %}
-                                        <button class="btn btn-warning btn-sm swap-btn" onclick="selectForSwap({{ loop.index }})">Swap</button>
+                                    {% elif loop.index > 5 and loop.index <= 10 %}
+                                        <button class="btn btn-warning btn-sm swap-btn" onclick="selectForSwap({{ loop.index }})">Are you pressed?. Swap</button>
                                     {% else %}
                                         <span>--</span>
                                     {% endif %}
