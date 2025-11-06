@@ -10,14 +10,14 @@
         </div>
     </div>
 
-    <meta http-equiv="refresh" content="1200">
+    <meta http-equiv="refresh" content="4200">
 
     <div class="row mt-4">
         <div class="col-12">
-            <table id="queueTable" class="table table-hover table-dark text-center" style="border: 6px solid white;">
+            <table id="queueTable" class="table table-hover table-dark text-center" style="border: 6px solid white;"    >
                 <thead>
                     <tr>
-                        <th>SN</th>
+                        <th>Queue Num</th>
                         <th>FirstName/PUIDC</th>
                         <th>Procedure Estimated Time</th>
                         <th>Status</th>
@@ -59,8 +59,8 @@
                                     {% if loop.first and record.service_status == 1 %}
                                         <a href="#" class="btn btn-success btn-sm" onclick="patientserved('{{ record.queue_id }}')">Served</a>
                                         <a href="#" class="btn btn-danger btn-sm" onclick="emergency()">Emergency</a>
-                                    {% elif loop.index > 5 and loop.index <= 10 %}
-                                        <button class="btn btn-warning btn-sm swap-btn" onclick="selectForSwap({{ loop.index }})">Are you pressed?. Swap</button>
+                                    {% elif loop.index > 5 and loop.index <= 9 %}
+                                        <button class="btn btn-warning btn-sm swap-btn" onclick="selectForSwap({{ loop.index }})"><b>Are you pressed?. Swap</b></button>
                                     {% else %}
                                         <span>--</span>
                                     {% endif %}

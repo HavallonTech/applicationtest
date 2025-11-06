@@ -132,3 +132,6 @@ table.table {
     .flashing {
         animation: flash 1s infinite;
     }
+    #queueTable td, #queueTable th {
+    font-size: 28px !important;     /* adjust size as you want */
+}
